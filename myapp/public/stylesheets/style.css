@@ -1,0 +1,27 @@
+body {
+  padding: 50px;
+  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+}
+
+a {
+  color: #00B7FF;
+}
+
+form {
+  margin-top: 1.125rem;
+}
+
+.form-group label,
+.form-group input {
+  display: block;
+  margin-bottom: 10px; /* Adjust spacing as needed */
+}
+
+.or{
+  margin-top: 2rem;
+  margin-bottom: 0;
+}
+
+.margin-0{
+  margin: 0;
+}
