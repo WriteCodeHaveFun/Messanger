@@ -39,6 +39,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// add react SPA
+// app.use('/reactSPA', express.static(path.join(__dirname, 'frontend/my-react-app/build')));
+
 // passport
 app.use(session({
   secret: 'keyboard cat',
@@ -62,6 +65,11 @@ app.use('/', indexRouter);
 app.use('/users', ensureAuthenticated, usersRouter);
 app.use('/', loginRouter);
 app.use('/', logoutRouter);
+
+// Fallback to serve index.html for any unknown route under /reactSPA
+// app.get('/reactSPA/*', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'frontend/my-react-app/build', 'index.html'));
+// });
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
