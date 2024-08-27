@@ -10,5 +10,7 @@ const federatedCredentialSchema = new mongoose.Schema({
   subject: String
 });
 
-const User = mongoose.model('User', userSchema);
-const FederatedCredential = mongoose.model('FederatedCredential', federatedCredentialSchema);
+module.exports = {
+    User: mongoose.model('User', userSchema),
+    FederatedCredential: mongoose.model('FederatedCredential', federatedCredentialSchema)
+};
