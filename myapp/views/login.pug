@@ -12,7 +12,8 @@ block content
         label(for='password') Password
         input#password.form-control(type='password', name='password', placeholder='Enter your password', required=true)
       
-      button.btn(type='submit') Login
+      button.btn(type='submit', name='action', value='login') Login
+      button.btn(type='submit', name='action', value='sign_in') Sign In
 
     p.or OAuth Login
     //- DONE: add '/auth/google/login'

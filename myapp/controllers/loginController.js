@@ -7,6 +7,17 @@ exports.login_get = asyncHandler(async (req, res, next) => {
 });
 
 exports.login_post = asyncHandler(async (req, res, next) => {
-    res.send("NOT IMPLEMENTED: login POST");
-    // TODO: login functionality
+    // TODO: login and sign in functionality
+    const { action } = req.body;
+
+    if (action === 'login') {
+        // Handle login
+        res.send("NOT IMPLEMENTED: login POST");
+    } else if (action === 'sign_in') {
+        // Handle sign in
+        res.send("NOT IMPLEMENTED: sign in POST");
+    } else {
+        // Handle other cases or show an error
+        res.send('Invalid action');
+    }
 });

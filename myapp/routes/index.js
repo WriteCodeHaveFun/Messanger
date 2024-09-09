@@ -5,7 +5,11 @@ var router = express.Router();
 router.get('/', function(req, res, next) {
   // DONE: check if user is loged in
   if (req.isAuthenticated()) {
-    res.render('index', { title: 'Express' });
+    // console.log('userName: ');
+    // console.log(req.user)
+
+    res.render('index', { title: 'Express',
+                          user: req.user });
   } else {
     res.redirect('/login');
   }
