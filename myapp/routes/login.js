@@ -7,7 +7,7 @@ var passport = require('passport');
 var GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const loginController = require('../controllers/loginController');
-const { User, FederatedCredential } = require('../models/userDataSchema');
+const { User, FederatedCredential } = require('../models/userDataSchemaGoogle');
 
 
 router.get('/login', loginController.login_get);
