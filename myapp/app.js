@@ -59,12 +59,15 @@ app.use(session({
     httpOnly: true // Prevents client-side JS from accessing the cookie
   }
 }));
-app.use(passport.authenticate('session'));
+// app.use(passport.authenticate('session'));
 
-app.use('/', indexRouter);
-app.use('/users', ensureAuthenticated, usersRouter);
+app.use(passport.initialize());
+app.use(passport.session());
+
 app.use('/', loginRouter);
-app.use('/', logoutRouter);
+app.use('/', ensureAuthenticated, indexRouter);
+app.use('/', ensureAuthenticated, logoutRouter);
+app.use('/users', ensureAuthenticated, usersRouter);
 
 // Fallback to serve index.html for any unknown route under /reactSPA
 // app.get('/reactSPA/*', (req, res) => {

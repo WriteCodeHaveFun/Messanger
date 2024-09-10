@@ -1,7 +1,11 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-  name: String
+  name: String,
+  password: {
+    type: String, // Define the type as String
+    required: false, // Explicitly mark as not required (optional)
+  },
 });
 
 const federatedCredentialSchema = new mongoose.Schema({

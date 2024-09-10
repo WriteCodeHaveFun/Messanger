@@ -2,51 +2,71 @@ const asyncHandler = require("express-async-handler");
 
 const express = require('express');
 const bcrypt = require('bcrypt'); // To hash passwords
-const User = require('../models/userDataSchemaStandart'); // Import the User model
-const router = express.Router();
+const { User } = require('../models/userDataSchema'); // Import the User model
+// const router = express.Router();
+const passport = require('passport');
+
 
 exports.login_get = asyncHandler(async (req, res, next) => {
-    // res.send("NOT IMPLEMENTED: login GET");
     // DONE: render login template
     res.render('login', { title: 'Login'} );
 });
 
 exports.login_post = asyncHandler(async (req, res, next) => {
-    // TODO: login and sign in functionality
-    const { action, usernameOrEmail, password } = req.body;
-
-    if (action === 'login') {
-        // Handle login
-        res.send("NOT IMPLEMENTED: login POST");
-    } else if (action === 'sign_in') {
-        // Handle sign in
-        try {
-            // Check if the user already exists
-            const existingUser = await User.findOne({ usernameOrEmail });
-            if (existingUser) {
-              return res.status(400).send('User already exists. Please log in.');
-            }
-      
-            // Hash the password before saving
-            const hashedPassword = await bcrypt.hash(password, 10);
-      
-            // Create a new user
-            const newUser = new User({
-              usernameOrEmail,
-              password: hashedPassword,
-            });
-      
-            // Save the user to the database
-            await newUser.save();
-      
-            res.send('User registered successfully!'); // TODO: delete this
-            // TODO: auto login and redirect to main page
-            // res.redirect('/');
-        } catch (error) {
-            res.status(500).send('Error signing in user: ' + error.message);
+    const { action, username, password } = req.body; // Make sure you are reading the correct input names
+  
+    if (action === "login") {
+      // Handle login via passport
+      passport.authenticate("local", (err, user, info) => {
+        if (err) {
+          return next(err);
         }
+        if (!user) {
+          return res.status(400).send(info.message); // Authentication failed
+        }
+        req.login(user, (err) => {
+          if (err) {
+            return next(err);
+          }
+          // Successful login, redirect to the main page
+          return res.redirect("/");
+        });
+      })(req, res, next);
+    } else if (action === "sign_in") {
+      // Handle sign in (new user registration)
+      try {
+        // Validate input
+        if (!username || !password) {
+          return res.status(400).send("Username/Email and Password are required");
+        }
+  
+        // Check if user already exists
+        const existingUser = await User.findOne({ name: username });
+        if (existingUser) {
+          return res.status(400).send("User already exists");
+        }
+  
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+  
+        // Create a new user
+        const newUser = new User({
+          name: username,
+          password: hashedPassword,
+        });
+  
+        await newUser.save();
+  
+        // Auto login after sign in
+        req.login(newUser, (err) => {
+          if (err) return next(err);
+          // Redirect to the main page after successful sign in
+          return res.redirect("/");
+        });
+      } catch (error) {
+        next(error);
+      }
     } else {
-        // Handle other cases or show an error
-        res.send('Invalid action');
+      res.send("Invalid action");
     }
-});
+  });

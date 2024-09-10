@@ -5,14 +5,41 @@ require('dotenv').config();
 
 var passport = require('passport');
 var GoogleStrategy = require('passport-google-oauth20').Strategy;
+const LocalStrategy = require("passport-local").Strategy;
+const bcrypt = require("bcrypt");
 
 const loginController = require('../controllers/loginController');
-const { User, FederatedCredential } = require('../models/userDataSchemaGoogle');
+const { User, FederatedCredential } = require('../models/userDataSchema');
 
+// Setting up the local strategy for username and password login
+passport.use(
+  new LocalStrategy(
+    // { usernameField: 'username', passwordField: 'password' }, // Custom field names
+    async (username, password, done) => {
+      try {
+        // Find the user by username or email
+        const user = await User.findOne({ name: username });
 
-router.get('/login', loginController.login_get);
-router.post('/login', loginController.login_post);
+        if (!user) {
+          return done(null, false, { message: "User not found" });
+        }
 
+        // Compare the password
+        const isMatch = await bcrypt.compare(password, user.password);
+
+        if (!isMatch) {
+          return done(null, false, { message: "Invalid password" });
+        }
+
+        // Successfully authenticated
+        return done(null, user);
+      } catch (err) {
+        return done(err);
+      }
+  })
+);
+
+// Google OAuth strategy
 passport.use(new GoogleStrategy({
   clientID: process.env['GOOGLE_CLIENT_ID'],
   clientSecret: process.env['GOOGLE_CLIENT_SECRET'],
@@ -61,6 +88,8 @@ passport.deserializeUser(function(user, cb) {
     });
 });
 
+router.get('/login', loginController.login_get);
+router.post('/login', loginController.login_post);
 
 router.get('/login/auth/google', 
     passport.authenticate('google')

@@ -2,17 +2,9 @@ var express = require('express');
 var router = express.Router();
 
 /* GET home page. */
-router.get('/', function(req, res, next) {
-  // DONE: check if user is loged in
-  if (req.isAuthenticated()) {
-    // console.log('userName: ');
-    // console.log(req.user)
-
-    res.render('index', { title: 'Express',
-                          user: req.user });
-  } else {
-    res.redirect('/login');
-  }
+router.get('/', function(req, res) {
+  res.render('index', { title: 'Express',
+                        user: req.user });
 });
 
 module.exports = router;
