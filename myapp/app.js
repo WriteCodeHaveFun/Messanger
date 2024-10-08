@@ -7,7 +7,8 @@ var session = require('express-session');
 var passport = require('passport');
 const MongoStore = require('connect-mongo');
 const ensureAuthenticated = require('../myapp/middleware/authController');
-
+const { Server } = require('socket.io'); // Import Socket.IO
+const http = require('http'); // Required for creating an HTTP server with Socket.IO
 require('dotenv').config();
 
 // Set up mongoose connection
@@ -20,14 +21,15 @@ async function main() {
   await mongoose.connect(mongoDB);
 }
 
-
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 const loginRouter = require('./routes/login');
 const logoutRouter = require('./routes/logout');
-
+const addUser = require('./routes/addUser');
 
 var app = express();
+var server = http.createServer(app); // Create HTTP server for Socket.IO
+var io = new Server(server); // Initialize Socket.IO with the server
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -39,40 +41,86 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// add react SPA
-// app.use('/reactSPA', express.static(path.join(__dirname, 'frontend/my-react-app/build')));
-
 // passport
 app.use(session({
   secret: 'keyboard cat',
   resave: false,
   saveUninitialized: false,
-  // DONE: добавить возможность взаимодействия с БД
-
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI, // MongoDB connection string
     collectionName: 'sessions' // Collection to store session data
   }),
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    secure: process.env.NODE_ENV === 'production', // Ensure secure cookies in production
-    httpOnly: true // Prevents client-side JS from accessing the cookie
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true
   }
 }));
-// app.use(passport.authenticate('session'));
-
 app.use(passport.initialize());
 app.use(passport.session());
 
 app.use('/', loginRouter);
 app.use('/', ensureAuthenticated, indexRouter);
 app.use('/', ensureAuthenticated, logoutRouter);
-app.use('/users', ensureAuthenticated, usersRouter);
 
-// Fallback to serve index.html for any unknown route under /reactSPA
-// app.get('/reactSPA/*', (req, res) => {
-//   res.sendFile(path.join(__dirname, 'frontend/my-react-app/build', 'index.html'));
-// });
+// add react SPA
+app.use('/dist', ensureAuthenticated, express.static(path.join(__dirname, 'frontend/messanger_frontend/dist')));
+
+app.use('/users', ensureAuthenticated, usersRouter);
+app.use('/addUser', ensureAuthenticated, addUser);
+
+// WebSocket logic
+// TODO: move mongoose.Schema to 'models' folder
+const UserSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+});
+const MessageSchema = new mongoose.Schema({
+  sender: String,
+  receiver: String,
+  content: String,
+  timestamp: Date,
+});
+const ChatUser = mongoose.model('ChatUser', UserSchema);
+const Message = mongoose.model('Message', MessageSchema);
+
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  // Handle adding a new user
+  socket.on('addUser', async (data, callback) => {
+    try {
+      const existingUser = await ChatUser.findOne({ email: data.email });
+      if (existingUser) {
+        callback({ error: 'User already exists' });
+      } else {
+        const newUser = new ChatUser({ name: data.name, email: data.email });
+        await newUser.save();
+        callback({ success: 'User added successfully' });
+      }
+    } catch (error) {
+      callback({ error: 'Error adding user' });
+    }
+  });
+
+  // Handle messaging between users
+  socket.on('sendMessage', async ({ sender, receiver, content }) => {
+    const message = new Message({
+      sender,
+      receiver,
+      content,
+      timestamp: new Date(),
+    });
+    await message.save();
+
+    // Send message to the receiver if online
+    socket.broadcast.to(receiver).emit('receiveMessage', message);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -81,13 +129,11 @@ app.use(function(req, res, next) {
 
 // error handler
 app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  // render the error page
   res.status(err.status || 500);
   res.render('error');
 });
 
-module.exports = app;
+// Export server instead of app for WebSocket to work
+module.exports = { app, server };
