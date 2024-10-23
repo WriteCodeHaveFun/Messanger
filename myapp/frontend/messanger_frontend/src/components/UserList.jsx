@@ -5,14 +5,15 @@ import axios from 'axios';
 function UserList() {
   const [users, setUsers] = useState([]);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  // const [email, setEmail] = useState('');
 
   const handleAddUser = async () => {
     try {
       // Обращение к серверу для добавления нового пользователя
-      const response = await axios.post('/addUser', { name, email });
+      const response = await axios.post('/addUser', { name });
       if (response.data.success) {
-        setUsers([...users, { name, email }]);
+        setUsers([...users, { name }]);
+        console.log('users: ', users);
       } else {
         alert(response.data.error);
       }
@@ -30,17 +31,17 @@ function UserList() {
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
-      <input
+      {/* <input
         type="email"
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-      />
+      /> */}
       <button onClick={handleAddUser}>Add User</button>
 
       <ul>
         {users.map((user, index) => (
-          <li key={index}>{user.name} ({user.email})</li>
+          <li key={index}>{user.name}</li>
         ))}
       </ul>
     </div>
