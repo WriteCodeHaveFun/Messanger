@@ -84,45 +84,68 @@ const MessageSchema = new mongoose.Schema({
 const ChatUser = mongoose.model('ChatUser', UserSchema);
 const Message = mongoose.model('Message', MessageSchema);
 
+// io.on('connection', (socket) => {
+//   console.log('User connected:', socket.id);
+
+//   // Handle adding a new user
+//   socket.on('addUser', async (data, callback) => {
+//     try {
+//       const existingUser = await ChatUser.findOne({ email: data.email });
+//       if (existingUser) {
+//         callback({ error: 'User already exists' });
+//       } else {
+//         const newUser = new ChatUser({ name: data.name, email: data.email });
+//         await newUser.save();
+//         callback({ success: 'User added successfully' });
+//       }
+//     } catch (error) {
+//       callback({ error: 'Error adding user' });
+//     }
+//   });
+
+//   // Handle messaging between users
+//   socket.on('sendMessage', async ({ sender, receiver, content }) => {
+//     const message = new Message({
+//       sender,
+//       receiver,
+//       content,
+//       timestamp: new Date(),
+//     });
+//     await message.save();
+
+//     // Send message to the receiver if online
+//     socket.broadcast.to(receiver).emit('receiveMessage', message);
+//   });
+
+//   socket.on('disconnect', () => {
+//     console.log('User disconnected:', socket.id);
+//   });
+// });
+
+// catch 404 and forward to error handler
+
+//!!!
+// Socket.IO setup for handling chat messages
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  console.log('A user connected:', socket.id);
 
-  // Handle adding a new user
-  socket.on('addUser', async (data, callback) => {
-    try {
-      const existingUser = await ChatUser.findOne({ email: data.email });
-      if (existingUser) {
-        callback({ error: 'User already exists' });
-      } else {
-        const newUser = new ChatUser({ name: data.name, email: data.email });
-        await newUser.save();
-        callback({ success: 'User added successfully' });
-      }
-    } catch (error) {
-      callback({ error: 'Error adding user' });
-    }
+  // Listen for `sendMessage` event from the client
+  socket.on('sendMessage', (msg) => {
+    const { sender, receiver, content } = msg;
+
+    // Emit message to the specific receiver if connected, otherwise broadcast
+    io.emit('receiveMessage', { sender, content });
+    
+    // In a production app, you'd likely use:
+    // io.to(receiver).emit('receiveMessage', { sender, content });
   });
 
-  // Handle messaging between users
-  socket.on('sendMessage', async ({ sender, receiver, content }) => {
-    const message = new Message({
-      sender,
-      receiver,
-      content,
-      timestamp: new Date(),
-    });
-    await message.save();
-
-    // Send message to the receiver if online
-    socket.broadcast.to(receiver).emit('receiveMessage', message);
-  });
-
+  // Handle client disconnect
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
   });
 });
 
-// catch 404 and forward to error handler
 app.use(function(req, res, next) {
   next(createError(404));
 });
