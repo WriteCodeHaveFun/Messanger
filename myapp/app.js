@@ -126,18 +126,55 @@ const Message = mongoose.model('Message', MessageSchema);
 
 //!!!
 // Socket.IO setup for handling chat messages
+// io.on('connection', (socket) => {
+//   console.log('A user connected:', socket.id);
+
+//   // Listen for `sendMessage` event from the client
+//   socket.on('sendMessage', (msg) => {
+//     const { sender, receiver, content } = msg;
+
+//     // Emit message to the specific receiver if connected, otherwise broadcast
+//     io.emit('receiveMessage', { sender, content });
+    
+//     // In a production app, you'd likely use:
+//     // io.to(receiver).emit('receiveMessage', { sender, content });
+//   });
+
+//   // Handle client disconnect
+//   socket.on('disconnect', () => {
+//     console.log('User disconnected:', socket.id);
+//   });
+// });
+
+// !!!
+// Next version:
+
+// WebSocket setup in app.js
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
-  // Listen for `sendMessage` event from the client
-  socket.on('sendMessage', (msg) => {
-    const { sender, receiver, content } = msg;
+  // Join a user to a specific chat room based on sender and receiver
+  socket.on('joinRoom', ({ sender, receiver }) => {
+    // Create a unique room for the sender and receiver pair
+    const roomName = [sender, receiver].sort().join('_'); // Sorting ensures unique room name for each pair
+    socket.join(roomName);
 
-    // Emit message to the specific receiver if connected, otherwise broadcast
-    io.emit('receiveMessage', { sender, content });
-    
-    // In a production app, you'd likely use:
-    // io.to(receiver).emit('receiveMessage', { sender, content });
+    console.log(`${sender} joined room: ${roomName}`);
+  });
+
+  // Handle `sendMessage` event for message transmission
+  socket.on('sendMessage', async ({ sender, receiver, content }) => {
+    const message = new Message({
+      sender,
+      receiver,
+      content,
+      timestamp: new Date(),
+    });
+    await message.save(); // Save message to database
+
+    // Define the room name the same way as in `joinRoom`
+    const roomName = [sender, receiver].sort().join('_');
+    io.to(roomName).emit('receiveMessage', { sender, content, timestamp: message.timestamp });
   });
 
   // Handle client disconnect
@@ -145,6 +182,7 @@ io.on('connection', (socket) => {
     console.log('User disconnected:', socket.id);
   });
 });
+
 
 app.use(function(req, res, next) {
   next(createError(404));

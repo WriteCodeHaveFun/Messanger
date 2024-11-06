@@ -2,27 +2,32 @@
 import React, { useEffect, useState } from 'react';
 import io from 'socket.io-client';
 
-// Connect to the WebSocket server (replace with your server's URL if different)
-const socket = io('http://localhost:3000');
+const socket = io('http://localhost:3000'); // Connect to WebSocket server
 
 function ChatComponent() {
   const [sender, setSender] = useState('');
   const [receiver, setReceiver] = useState('');
   const [message, setMessage] = useState('');
   const [chatHistory, setChatHistory] = useState([]);
+  const [roomJoined, setRoomJoined] = useState(false);
 
-  // Set up WebSocket listeners
   useEffect(() => {
-    // Listen for incoming messages
     socket.on('receiveMessage', (msg) => {
       setChatHistory((prev) => [...prev, msg]);
     });
 
-    // Clean up when component unmounts
     return () => {
       socket.off('receiveMessage');
     };
   }, []);
+
+  // Join room based on sender and receiver
+  const joinRoom = () => {
+    if (sender && receiver) {
+      socket.emit('joinRoom', { sender, receiver });
+      setRoomJoined(true);
+    }
+  };
 
   // Send a message
   const sendMessage = () => {
@@ -32,17 +37,14 @@ function ChatComponent() {
     }
 
     const msg = { sender, receiver, content: message };
-    socket.emit('sendMessage', msg); // Send message to the server
-
-    // Display the sent message in the chat area
+    socket.emit('sendMessage', msg);
     setChatHistory((prev) => [...prev, { ...msg, isSentByCurrentUser: true }]);
-    setMessage(''); // Clear the input field after sending
+    setMessage('');
   };
 
   return (
     <div>
       <h2>Chat Component</h2>
-      {/* Input fields for sender and receiver */}
       <input
         type="text"
         placeholder="Sender Name"
@@ -55,8 +57,10 @@ function ChatComponent() {
         value={receiver}
         onChange={(e) => setReceiver(e.target.value)}
       />
+      <button onClick={joinRoom} disabled={roomJoined}>
+        Join Chat Room
+      </button>
 
-      {/* Chat history area */}
       <div className="chat-history" style={{ border: '1px solid #ddd', padding: '10px', height: '300px', overflowY: 'auto', marginTop: '10px' }}>
         {chatHistory.map((msg, index) => (
           <div key={index} style={{ textAlign: msg.isSentByCurrentUser ? 'right' : 'left' }}>
@@ -65,7 +69,6 @@ function ChatComponent() {
         ))}
       </div>
 
-      {/* Input field for typing messages */}
       <input
         type="text"
         placeholder="Type your message..."
