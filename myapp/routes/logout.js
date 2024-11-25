@@ -6,7 +6,7 @@ router.get('/logout', function(req, res, next) {
     if (err) { 
         return next(err); 
     }
-    res.send('Logout succesful')
+    res.redirect('/')
   });
 });
 

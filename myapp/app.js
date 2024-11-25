@@ -60,11 +60,11 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use('/', loginRouter);
-app.use('/', ensureAuthenticated, indexRouter);
+// app.use('/', ensureAuthenticated, indexRouter);
 app.use('/', ensureAuthenticated, logoutRouter);
 
 // add react SPA
-app.use('/dist', ensureAuthenticated, express.static(path.join(__dirname, 'frontend/messanger_frontend/dist')));
+app.use('/', ensureAuthenticated, express.static(path.join(__dirname, 'frontend/messanger_frontend/dist')));
 
 app.use('/users', ensureAuthenticated, usersRouter);
 app.use('/addUser', ensureAuthenticated, addUser);
