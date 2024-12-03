@@ -14,6 +14,11 @@ const federatedCredentialSchema = new mongoose.Schema({
   subject: String
 });
 
+const contactListSchema = new mongoose.Schema({
+  currentUserName: String,
+  contactList: array // ! я не знаю, как правильно записать эту строку
+});
+
 module.exports = {
     User: mongoose.model('User', userSchema),
     FederatedCredential: mongoose.model('FederatedCredential', federatedCredentialSchema)

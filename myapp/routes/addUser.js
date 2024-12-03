@@ -16,6 +16,7 @@ router.post('/', async function(req, res) {
 
     if (user) {
       // If the user is found, return a success response
+      // TODO: add user to contactList
       return res.json({ success: true, message: 'User found', user });
     } else {
       // If the user is not found, return an error
