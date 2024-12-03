@@ -7,7 +7,7 @@ import axios from 'axios';
 function App() {
   const [selectedUser, setSelectedUser] = useState(null); // Для хранения выбранного пользователя
   const [currentUser, setCurrentUser] = useState(null);
-  // let currentUser;
+  //TODO: replace test with proper name or remove this function at all
   const test = async () => {
     try {
       const currentUser = (await axios.get('/api/currentUser')).data.user.name;

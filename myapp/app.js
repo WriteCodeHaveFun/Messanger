@@ -27,6 +27,8 @@ const loginRouter = require('./routes/login');
 const logoutRouter = require('./routes/logout');
 const addUser = require('./routes/addUser');
 const apiCurrentUser = require('./routes/api/currentUser');
+const apiContactList = require('./routes/api/contactList');
+
 
 var app = express();
 var server = http.createServer(app); // Create HTTP server for Socket.IO
@@ -72,6 +74,8 @@ app.use('/addUser', ensureAuthenticated, addUser);
 
 // api
 app.use('/api/currentUser', ensureAuthenticated, apiCurrentUser);
+app.use('/api/contactList', ensureAuthenticated, apiContactList);
+
 
 // WebSocket logic
 // TODO: move mongoose.Schema to 'models' folder
