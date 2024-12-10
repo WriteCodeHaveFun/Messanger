@@ -7,6 +7,7 @@ var session = require('express-session');
 var passport = require('passport');
 const MongoStore = require('connect-mongo');
 const ensureAuthenticated = require('../myapp/middleware/authController');
+const ensureContactAvailable = require('../myapp/middleware/contactAccessController')
 const { Server } = require('socket.io'); // Import Socket.IO
 const http = require('http'); // Required for creating an HTTP server with Socket.IO
 require('dotenv').config();
@@ -28,6 +29,8 @@ const logoutRouter = require('./routes/logout');
 const addUser = require('./routes/addUser');
 const apiCurrentUser = require('./routes/api/currentUser');
 const apiContactList = require('./routes/api/contactList');
+const apiChatHistory = require('./routes/api/chatHistory');
+const messageRouter = require('./routes/api/messages');
 
 
 var app = express();
@@ -62,7 +65,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use('/', loginRouter);
+app.use('/', loginRouter); // TODO: if user already logged in and go to /login, redirect to /
 // app.use('/', ensureAuthenticated, indexRouter);
 app.use('/', ensureAuthenticated, logoutRouter);
 
@@ -75,6 +78,8 @@ app.use('/addUser', ensureAuthenticated, addUser);
 // api
 app.use('/api/currentUser', ensureAuthenticated, apiCurrentUser);
 app.use('/api/contactList', ensureAuthenticated, apiContactList);
+app.use('/api/messages', ensureAuthenticated, messageRouter);
+app.use('/api/chatHistory/:contactName', ensureAuthenticated, ensureContactAvailable, apiChatHistory);
 
 
 // WebSocket logic

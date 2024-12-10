@@ -30,8 +30,28 @@ const contactListSchema = new mongoose.Schema({
   ],
 });
 
+const messageHistorySchema = new mongoose.Schema({
+  sender: {
+    type: String,
+    required: true,
+  },
+  receiver: {
+    type: String,
+    required: true,
+  },
+  content: {
+    type: String,
+    required: true,
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
 module.exports = {
   User: mongoose.model('User', userSchema),
   FederatedCredential: mongoose.model('FederatedCredential', federatedCredentialSchema),
   ContactList: mongoose.model('ContactList', contactListSchema), // Добавляем модель для контактов
+  MessageHistory: mongoose.model('MessageHistory', messageHistorySchema),
 };

@@ -1,6 +1,6 @@
-// src/components/ChatRoom.jsx
 import React, { useEffect, useState } from 'react';
 import io from 'socket.io-client';
+import axios from 'axios';
 
 const socket = io('http://localhost:3000'); // Adjust to match your server's address
 
@@ -8,10 +8,6 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
   const [message, setMessage] = useState('');
   const [chatHistory, setChatHistory] = useState([]);
   const [roomName, setRoomName] = useState('');
-
-  console.log("selectedUser: ", selectedUser);
-  console.log("currentUser: ", currentUser);
-
 
   useEffect(() => {
     if (selectedUser && currentUser) {
@@ -22,9 +18,20 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
       socket.emit('joinRoom', { sender: currentUser, receiver: selectedUser });
 
       console.log(`${currentUser} joined room: ${room}`);
+      
+      // Fetch chat history
+      const fetchChatHistory = async () => {
+        try {
+          const response = await axios.get(`/api/chatHistory/${selectedUser}`);
+          setChatHistory(response.data.chatHistory);
+        } catch (error) {
+          console.error('Error fetching chat history:', error);
+        }
+      };
+
+      fetchChatHistory();
     }
 
-    // Listen for incoming messages
     socket.on('receiveMessage', (msg) => {
       setChatHistory((prev) => [...prev, msg]);
     });
@@ -34,7 +41,7 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
     };
   }, [selectedUser, currentUser]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!message.trim()) return;
 
     const msg = {
@@ -45,6 +52,13 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
 
     // Emit message to the server
     socket.emit('sendMessage', msg);
+
+    // Save the message to the database
+    try {
+      await axios.post('/api/messages/send', msg);
+    } catch (error) {
+      console.error('Error saving message:', error);
+    }
 
     // Append the sent message to the chat history
     setChatHistory((prev) => [
