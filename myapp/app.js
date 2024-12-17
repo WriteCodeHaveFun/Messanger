@@ -1,6 +1,7 @@
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
+const fs = require('fs');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var session = require('express-session');
@@ -159,6 +160,16 @@ const Message = mongoose.model('Message', MessageSchema);
 //   });
 // });
 
+// !! send file
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(uploadDir));
+
 // !!!
 // Next version:
 
@@ -176,18 +187,18 @@ io.on('connection', (socket) => {
   });
 
   // Handle `sendMessage` event for message transmission
-  socket.on('sendMessage', async ({ sender, receiver, content }) => {
-    const message = new Message({
-      sender,
-      receiver,
-      content,
-      timestamp: new Date(),
-    });
-    await message.save(); // Save message to database
+  socket.on('sendMessage', async ({ sender, receiver, content, file }) => {
+    // const message = new Message({
+    //   sender,
+    //   receiver,
+    //   content,
+    //   timestamp: new Date(),
+    // });
+    // await message.save(); // Save message to database
 
     // Define the room name the same way as in `joinRoom`
     const roomName = [sender, receiver].sort().join('_');
-    io.to(roomName).emit('receiveMessage', { sender, content, timestamp: message.timestamp });
+    io.to(roomName).emit('receiveMessage', { sender, content, file, timestamp: new Date() });
   });
 
   // Handle client disconnect

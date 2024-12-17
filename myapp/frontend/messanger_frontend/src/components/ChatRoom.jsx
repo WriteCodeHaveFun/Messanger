@@ -6,20 +6,18 @@ const socket = io('http://localhost:3000'); // Adjust to match your server's add
 
 function ChatRoom({ selectedUser, currentUser, onBack }) {
   const [message, setMessage] = useState('');
+  const [file, setFile] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   const [roomName, setRoomName] = useState('');
 
   useEffect(() => {
     if (selectedUser && currentUser) {
-      // Join a room with the sorted names
       const room = [currentUser, selectedUser].sort().join('_');
       setRoomName(room);
 
       socket.emit('joinRoom', { sender: currentUser, receiver: selectedUser });
-
       console.log(`${currentUser} joined room: ${room}`);
-      
-      // Fetch chat history
+
       const fetchChatHistory = async () => {
         try {
           const response = await axios.get(`/api/chatHistory/${selectedUser}`);
@@ -42,31 +40,46 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
   }, [selectedUser, currentUser]);
 
   const sendMessage = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() && !file) return;
 
-    const msg = {
-      sender: currentUser,
-      receiver: selectedUser,
-      content: message,
-    };
+    const formData = new FormData();
+    formData.append('sender', currentUser);
+    formData.append('receiver', selectedUser);
+    formData.append('content', message);
+    if (file) formData.append('file', file);
 
-    // Emit message to the server
-    socket.emit('sendMessage', msg);
-
-    // Save the message to the database
     try {
-      await axios.post('/api/messages/send', msg);
+      await axios.post('/api/messages/send', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      socket.emit('sendMessage', {
+        sender: currentUser,
+        receiver: selectedUser,
+        content: message,
+        file: file ? { filename: file.name } : null,
+      });
+
+      setChatHistory((prev) => [
+        ...prev,
+        { sender: currentUser, content: message, file, timestamp: new Date() },
+      ]);
+
+      setMessage('');
+      setFile(null);
     } catch (error) {
-      console.error('Error saving message:', error);
+      console.error('Error sending message:', error);
     }
+  };
 
-    // Append the sent message to the chat history
-    setChatHistory((prev) => [
-      ...prev,
-      { ...msg, isSentByCurrentUser: true, timestamp: new Date() },
-    ]);
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+  };
 
-    setMessage('');
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setFile(e.dataTransfer.files[0]);
   };
 
   return (
@@ -88,13 +101,31 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
         {chatHistory.map((msg, index) => (
           <div
             key={index}
-            style={{ textAlign: msg.isSentByCurrentUser ? 'right' : 'left' }}
+            style={{ textAlign: msg.sender === currentUser ? 'right' : 'left' }}
           >
-            <strong>{msg.sender}:</strong> {msg.content}{' '}
-            <small>{new Date(msg.timestamp).toLocaleTimeString()}</small>
+            <strong>{msg.sender}:</strong>{' '}
+            {msg.content || (
+              <a href={`/api/messages/file/${msg.file?.filename}`} target="_blank" rel="noopener noreferrer">
+                {msg.file?.filename}
+              </a>
+            )}
+            <small> {new Date(msg.timestamp).toLocaleTimeString()}</small>
           </div>
         ))}
       </div>
+      <div
+        onDrop={handleDrop}
+        onDragOver={(e) => e.preventDefault()}
+        style={{
+          border: '1px dashed #ccc',
+          padding: '10px',
+          margin: '10px 0',
+          textAlign: 'center',
+        }}
+      >
+        Drag and drop a file here or select one below.
+      </div>
+      <input type="file" onChange={handleFileChange} />
       <input
         type="text"
         placeholder="Type your message..."

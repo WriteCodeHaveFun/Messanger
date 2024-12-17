@@ -30,6 +30,25 @@ const contactListSchema = new mongoose.Schema({
   ],
 });
 
+// const messageHistorySchema = new mongoose.Schema({
+//   sender: {
+//     type: String,
+//     required: true,
+//   },
+//   receiver: {
+//     type: String,
+//     required: true,
+//   },
+//   content: {
+//     type: String,
+//     required: true,
+//   },
+//   timestamp: {
+//     type: Date,
+//     default: Date.now,
+//   },
+// });
+
 const messageHistorySchema = new mongoose.Schema({
   sender: {
     type: String,
@@ -39,9 +58,11 @@ const messageHistorySchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  content: {
-    type: String,
-    required: true,
+  content: String, // Optional for file messages
+  file: {
+    filename: String, // Name of the file
+    mimetype: String, // File MIME type
+    path: String, // Path where the file is stored
   },
   timestamp: {
     type: Date,
