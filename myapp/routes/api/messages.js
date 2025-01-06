@@ -33,6 +33,7 @@ router.post('/send', upload.single('file'), async (req, res) => {
             path: file.path,
           }
         : null,
+      status: 'delivered', // Set initial status as "delivered"
     });
     await newMessage.save();
     res.status(201).json({ success: true, message: 'Message saved' });

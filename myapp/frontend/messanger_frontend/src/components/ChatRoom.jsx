@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
 
@@ -9,6 +9,8 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
   const [file, setFile] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   const [roomName, setRoomName] = useState('');
+  const [isTyping, setIsTyping] = useState(false); // Track if the other user is typing
+  const typingTimeout = useRef(null); // Timeout reference for typing logic
 
   useEffect(() => {
     if (selectedUser && currentUser) {
@@ -30,12 +32,23 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
       fetchChatHistory();
     }
 
+    // Listen for incoming events
     socket.on('receiveMessage', (msg) => {
       setChatHistory((prev) => [...prev, msg]);
     });
 
+    socket.on('typing', ({ sender }) => {
+      if (sender === selectedUser) setIsTyping(true);
+    });
+
+    socket.on('stopTyping', ({ sender }) => {
+      if (sender === selectedUser) setIsTyping(false);
+    });
+
     return () => {
       socket.off('receiveMessage');
+      socket.off('typing');
+      socket.off('stopTyping');
     };
   }, [selectedUser, currentUser]);
 
@@ -68,9 +81,25 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
 
       setMessage('');
       setFile(null);
+
+      // Notify the server that typing has stopped
+      socket.emit('stopTyping', { sender: currentUser, receiver: selectedUser });
     } catch (error) {
       console.error('Error sending message:', error);
     }
+  };
+
+  const handleInputChange = (e) => {
+    setMessage(e.target.value);
+
+    // Notify the server that the user is typing
+    socket.emit('typing', { sender: currentUser, receiver: selectedUser });
+
+    // Set a timeout to emit the stopTyping event if the user stops typing
+    if (typingTimeout.current) clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => {
+      socket.emit('stopTyping', { sender: currentUser, receiver: selectedUser });
+    }, 1000); // 1 second delay
   };
 
   const handleFileChange = (e) => {
@@ -105,13 +134,18 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
           >
             <strong>{msg.sender}:</strong>{' '}
             {msg.content || (
-              <a href={`/api/messages/file/${msg.file?.filename}`} target="_blank" rel="noopener noreferrer">
+              <a
+                href={`/api/messages/file/${msg.file?.filename}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 {msg.file?.filename}
               </a>
             )}
             <small> {new Date(msg.timestamp).toLocaleTimeString()}</small>
           </div>
         ))}
+        {isTyping && <p style={{ fontStyle: 'italic', color: 'gray' }}>{selectedUser} is typing...</p>}
       </div>
       <div
         onDrop={handleDrop}
@@ -130,7 +164,7 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
         type="text"
         placeholder="Type your message..."
         value={message}
-        onChange={(e) => setMessage(e.target.value)}
+        onChange={handleInputChange}
         style={{ marginTop: '10px', width: '80%' }}
       />
       <button onClick={sendMessage} style={{ marginLeft: '10px' }}>

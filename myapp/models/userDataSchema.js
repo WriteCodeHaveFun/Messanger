@@ -64,6 +64,11 @@ const messageHistorySchema = new mongoose.Schema({
     mimetype: String, // File MIME type
     path: String, // Path where the file is stored
   },
+  status: {
+    type: String, 
+    enum: ['delivered', 'read'], 
+    default: 'delivered',
+  },
   timestamp: {
     type: Date,
     default: Date.now,

@@ -186,6 +186,18 @@ io.on('connection', (socket) => {
     console.log(`${sender} joined room: ${roomName}`);
   });
 
+  // Событие "печатает"
+  socket.on('typing', ({ sender, receiver }) => {
+    const room = [sender, receiver].sort().join('_');
+    socket.to(room).emit('typing', { sender });
+  });
+
+  // Событие "перестал печатать"
+  socket.on('stopTyping', ({ sender, receiver }) => {
+    const room = [sender, receiver].sort().join('_');
+    socket.to(room).emit('stopTyping', { sender });
+  });
+
   // Handle `sendMessage` event for message transmission
   socket.on('sendMessage', async ({ sender, receiver, content, file }) => {
     // const message = new Message({
