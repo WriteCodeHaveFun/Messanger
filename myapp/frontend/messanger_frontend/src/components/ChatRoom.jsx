@@ -11,6 +11,7 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
   const [roomName, setRoomName] = useState('');
   const [isTyping, setIsTyping] = useState(false); // Track if the other user is typing
   const typingTimeout = useRef(null); // Timeout reference for typing logic
+  const observerRef = useRef(null); // Reference for the IntersectionObserver
 
   useEffect(() => {
     if (selectedUser && currentUser) {
@@ -18,12 +19,18 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
       setRoomName(room);
 
       socket.emit('joinRoom', { sender: currentUser, receiver: selectedUser });
-      console.log(`${currentUser} joined room: ${room}`);
 
       const fetchChatHistory = async () => {
         try {
           const response = await axios.get(`/api/chatHistory/${selectedUser}`);
-          setChatHistory(response.data.chatHistory);
+          const updatedHistory = response.data.chatHistory.map((msg) => {
+            // Ensure 'read' status is respected on initial load
+            if (msg.status === 'read' && msg.sender !== currentUser) {
+              return { ...msg, status: 'read' };
+            }
+            return msg;
+          });
+          setChatHistory(updatedHistory);
         } catch (error) {
           console.error('Error fetching chat history:', error);
         }
@@ -32,7 +39,6 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
       fetchChatHistory();
     }
 
-    // Listen for incoming events
     socket.on('receiveMessage', (msg) => {
       setChatHistory((prev) => [...prev, msg]);
     });
@@ -45,12 +51,71 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
       if (sender === selectedUser) setIsTyping(false);
     });
 
+    socket.on('messageStatusUpdate', ({ ids, status }) => {
+      // TODO баг: если один из участников чата обновил страницу или переподключился к чату, может некорректно отображаться статус "получил\прочитал"
+      setChatHistory((prev) =>
+        prev.map((msg) => 
+          ids.some(
+            (id) =>
+              id.timestamp === msg.timestamp &&
+              id.sender === msg.sender &&
+              id.receiver === msg.receiver
+          )
+            ? { ...msg, status }
+            : msg
+        )
+      );
+    });
+
     return () => {
       socket.off('receiveMessage');
       socket.off('typing');
       socket.off('stopTyping');
+      socket.off('messageStatusUpdate');
     };
   }, [selectedUser, currentUser]);
+
+  useEffect(() => {
+    // Set up IntersectionObserver
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const msg = entry.target.dataset.message;
+            const parsedMsg = JSON.parse(msg);
+            console.log('parsedMsg: ', parsedMsg);
+
+            // Trigger messageRead event only for messages sent by the other user
+            if (parsedMsg.status === 'delivered' && parsedMsg.sender !== currentUser) {
+              socket.emit('messageRead', {
+                ids: [parsedMsg], // Pass the message details
+                sender: parsedMsg.sender,
+                receiver: currentUser,
+              });
+            }
+          }
+        });
+      },
+      { threshold: 1.0 } // Trigger when the entire element is in view
+    );
+
+    observerRef.current = observer;
+
+    return () => {
+      if (observerRef.current) observerRef.current.disconnect();
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    // Observe all delivered messages not sent by the current user
+    const container = document.querySelectorAll('[data-message]');
+    container.forEach((element) => {
+      const msg = JSON.parse(element.dataset.message);
+      if (msg.sender !== currentUser) {
+        observerRef.current.observe(element);
+      }
+    });
+  }, [chatHistory]);
 
   const sendMessage = async () => {
     if (!message.trim() && !file) return;
@@ -72,18 +137,16 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
         receiver: selectedUser,
         content: message,
         file: file ? { filename: file.name } : null,
+        status: 'delivered',
       });
 
       setChatHistory((prev) => [
         ...prev,
-        { sender: currentUser, content: message, file, timestamp: new Date() },
+        { sender: currentUser, content: message, file, status: 'delivered', timestamp: new Date().toISOString() },
       ]);
 
       setMessage('');
       setFile(null);
-
-      // Notify the server that typing has stopped
-      socket.emit('stopTyping', { sender: currentUser, receiver: selectedUser });
     } catch (error) {
       console.error('Error sending message:', error);
     }
@@ -130,9 +193,12 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
         {chatHistory.map((msg, index) => (
           <div
             key={index}
+            data-message={JSON.stringify(msg)} // Pass message details for IntersectionObserver
             style={{ textAlign: msg.sender === currentUser ? 'right' : 'left' }}
           >
-            <strong>{msg.sender}:</strong>{' '}
+            <strong>
+              {msg.sender} ({msg.status === 'read' ? 'r' : 'd'}):
+            </strong>{' '}
             {msg.content || (
               <a
                 href={`/api/messages/file/${msg.file?.filename}`}

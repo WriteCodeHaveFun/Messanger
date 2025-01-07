@@ -13,6 +13,9 @@ const { Server } = require('socket.io'); // Import Socket.IO
 const http = require('http'); // Required for creating an HTTP server with Socket.IO
 require('dotenv').config();
 
+const MessageHistory = require('./models/userDataSchema').MessageHistory;
+
+
 // Set up mongoose connection
 const mongoose = require("mongoose");
 mongoose.set("strictQuery", false);
@@ -210,7 +213,25 @@ io.on('connection', (socket) => {
 
     // Define the room name the same way as in `joinRoom`
     const roomName = [sender, receiver].sort().join('_');
-    io.to(roomName).emit('receiveMessage', { sender, content, file, timestamp: new Date() });
+    io.to(roomName).emit('receiveMessage', { sender, content, file, timestamp: new Date(), status: 'delivered' });
+  });
+
+  // Handle 'delivered/read' functionality
+  socket.on('messageRead', async ({ ids, sender, receiver }) => {
+    try {
+      console.log('messageReaded!')
+      await MessageHistory.updateMany(
+        { 
+          //_id: { $in: ids }, 
+          sender, receiver, status: 'delivered' },
+        { $set: { status: 'read' } }
+      );
+
+      const roomName = [sender, receiver].sort().join('_');
+      io.to(roomName).emit('messageStatusUpdate', { ids, status: 'read' });
+    } catch (error) {
+      console.error('Error updating message status:', error);
+    }
   });
 
   // Handle client disconnect
