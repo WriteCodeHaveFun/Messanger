@@ -52,20 +52,20 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
     });
 
     socket.on('messageStatusUpdate', ({ ids, status }) => {
-      console.log('messagesStatusUpdated!');
       setChatHistory((prev) =>
-        prev.map((msg) => {
-          return ids.some(
+        prev.map((msg) => 
+          ids.some(
             (id) =>
               // id.timestamp === msg.timestamp &&
-              id.sender === msg.sender &&
+              id.sender === msg.sender 
+              &&
               id.messageID === msg.messageID
               // &&
               // id.receiver === msg.receiver 
           )
             ? { ...msg, status }
             : msg
-        }
+        
         )
       );
     });
@@ -90,7 +90,7 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
             // Trigger messageRead event only for messages sent by the other user
             if (parsedMsg.status === 'delivered' && parsedMsg.sender !== currentUser) {
               socket.emit('messageRead', {
-                ids: [{ ...parsedMsg, id: parsedMsg._id }], // Pass the message details
+                ids: [{...parsedMsg}], // Pass the message details
                 sender: parsedMsg.sender,
                 receiver: currentUser,
               });

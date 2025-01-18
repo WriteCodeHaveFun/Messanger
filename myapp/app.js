@@ -219,7 +219,6 @@ io.on('connection', (socket) => {
   // Handle 'delivered/read' functionality
   socket.on('messageRead', async ({ ids, sender, receiver }) => {
     try {
-      console.log('messageReaded!')
       await MessageHistory.updateMany(
         { 
           //_id: { $in: ids }, 
