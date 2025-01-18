@@ -52,17 +52,20 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
     });
 
     socket.on('messageStatusUpdate', ({ ids, status }) => {
-      // TODO баг: если один из участников чата обновил страницу или переподключился к чату, может некорректно отображаться статус "получил\прочитал"
+      console.log('messagesStatusUpdated!');
       setChatHistory((prev) =>
-        prev.map((msg) => 
-          ids.some(
+        prev.map((msg) => {
+          return ids.some(
             (id) =>
-              id.timestamp === msg.timestamp &&
+              // id.timestamp === msg.timestamp &&
               id.sender === msg.sender &&
-              id.receiver === msg.receiver
+              id.messageID === msg.messageID
+              // &&
+              // id.receiver === msg.receiver 
           )
             ? { ...msg, status }
             : msg
+        }
         )
       );
     });
@@ -83,12 +86,11 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
           if (entry.isIntersecting) {
             const msg = entry.target.dataset.message;
             const parsedMsg = JSON.parse(msg);
-            console.log('parsedMsg: ', parsedMsg);
 
             // Trigger messageRead event only for messages sent by the other user
             if (parsedMsg.status === 'delivered' && parsedMsg.sender !== currentUser) {
               socket.emit('messageRead', {
-                ids: [parsedMsg], // Pass the message details
+                ids: [{ ...parsedMsg, id: parsedMsg._id }], // Pass the message details
                 sender: parsedMsg.sender,
                 receiver: currentUser,
               });
@@ -120,10 +122,14 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
   const sendMessage = async () => {
     if (!message.trim() && !file) return;
 
+    const messageID = new Date().toISOString();
+
     const formData = new FormData();
     formData.append('sender', currentUser);
     formData.append('receiver', selectedUser);
     formData.append('content', message);
+    formData.append('messageID', messageID);
+
     if (file) formData.append('file', file);
 
     try {
@@ -138,6 +144,7 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
         content: message,
         file: file ? { filename: file.name } : null,
         status: 'delivered',
+        messageID: messageID,
       });
 
       setChatHistory((prev) => [

@@ -11,7 +11,6 @@ function App() {
   const test = async () => {
     try {
       const currentUser = (await axios.get('/api/currentUser')).data.user.name;
-      console.log('currentUser: ', currentUser);
       setCurrentUser(currentUser);
     } catch (error) {
       console.error('Error adding user', error);

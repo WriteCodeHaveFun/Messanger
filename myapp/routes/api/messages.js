@@ -18,7 +18,7 @@ const upload = multer({ storage });
 
 // Route to save a message with or without a file
 router.post('/send', upload.single('file'), async (req, res) => {
-  const { sender, receiver, content } = req.body;
+  const { sender, receiver, content, messageID } = req.body;
   const file = req.file;
 
   try {
@@ -34,6 +34,7 @@ router.post('/send', upload.single('file'), async (req, res) => {
           }
         : null,
       status: 'delivered', // Set initial status as "delivered"
+      messageID,
     });
     await newMessage.save();
     res.status(201).json({ success: true, message: 'Message saved' });

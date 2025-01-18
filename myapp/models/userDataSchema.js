@@ -69,6 +69,10 @@ const messageHistorySchema = new mongoose.Schema({
     enum: ['delivered', 'read'], 
     default: 'delivered',
   },
+  messageID: {
+    type: String,
+    required: true,
+  },
   timestamp: {
     type: Date,
     default: Date.now,

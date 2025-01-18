@@ -202,7 +202,7 @@ io.on('connection', (socket) => {
   });
 
   // Handle `sendMessage` event for message transmission
-  socket.on('sendMessage', async ({ sender, receiver, content, file }) => {
+  socket.on('sendMessage', async ({ sender, receiver, content, file, messageID }) => {
     // const message = new Message({
     //   sender,
     //   receiver,
@@ -213,7 +213,7 @@ io.on('connection', (socket) => {
 
     // Define the room name the same way as in `joinRoom`
     const roomName = [sender, receiver].sort().join('_');
-    io.to(roomName).emit('receiveMessage', { sender, content, file, timestamp: new Date(), status: 'delivered' });
+    io.to(roomName).emit('receiveMessage', { sender, content, file, messageID, timestamp: new Date(), status: 'delivered' });
   });
 
   // Handle 'delivered/read' functionality
@@ -228,7 +228,7 @@ io.on('connection', (socket) => {
       );
 
       const roomName = [sender, receiver].sort().join('_');
-      io.to(roomName).emit('messageStatusUpdate', { ids, status: 'read' });
+      io.to(roomName).emit('messageStatusUpdate', { ids, status: 'read' });      
     } catch (error) {
       console.error('Error updating message status:', error);
     }
