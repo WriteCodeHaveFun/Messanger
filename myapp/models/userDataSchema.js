@@ -1,10 +1,26 @@
 const mongoose = require('mongoose');
 
+// const userSchema = new mongoose.Schema({
+//   name: String,
+//   password: {
+//     type: String,
+//     required: false, // Пароль может быть не обязательным
+//   },
+// });
+
 const userSchema = new mongoose.Schema({
   name: String,
   password: {
     type: String,
     required: false, // Пароль может быть не обязательным
+  },
+  online: {
+    type: Boolean,
+    default: false, // Default to offline
+  },
+  lastSeen: {
+    type: Date,
+    default: null, // No activity yet
   },
 });
 

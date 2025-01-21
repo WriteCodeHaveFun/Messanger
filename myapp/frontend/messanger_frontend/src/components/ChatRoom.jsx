@@ -13,6 +13,111 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
   const typingTimeout = useRef(null); // Timeout reference for typing logic
   const observerRef = useRef(null); // Reference for the IntersectionObserver
 
+  const [userStatus, setUserStatus] = useState({ online: false, lastSeen: null });
+
+  const one_minute_in_milliseconds = 6000; // TODO: now its 6 sec for test
+
+  useEffect(() => {
+    
+    const fetchLastSeen = async () => {
+      try {
+        const response = await axios.get(`/api/userStatus/${selectedUser}`);
+        setUserStatus({
+          online: response.data.online,
+          lastSeen: response.data.lastSeen,
+        });
+      } catch (error) {
+        console.error('Error fetching user status:', error);
+      }
+    };
+  
+    fetchLastSeen(); // Fetch initial status
+  },[]);
+
+  // useEffect(() => {
+  //   if (currentUser) {
+  //     socket.emit('setUserOnline', { username: currentUser });
+  
+  //     let afkTimer;
+  //     const resetAfkTimer = () => {
+  //       clearTimeout(afkTimer);
+  //       afkTimer = setTimeout(() => {
+  //         socket.emit('setAfk', { username: currentUser });
+  //       }, 60000); // 1 minute inactivity
+  //     };
+  
+  //     window.addEventListener('mousemove', resetAfkTimer);
+  //     window.addEventListener('keydown', resetAfkTimer);
+  //     resetAfkTimer();
+  
+  //     return () => {
+  //       clearTimeout(afkTimer);
+  //       socket.emit('setAfk', { username: currentUser });
+  //       window.removeEventListener('mousemove', resetAfkTimer);
+  //       window.removeEventListener('keydown', resetAfkTimer);
+  //     };
+  //   }
+  // }, [currentUser]);
+  
+  useEffect(() => {
+    if (currentUser) {
+      socket.emit('setUserOnline', { username: currentUser });
+      console.log(`user ${currentUser} in now online`)
+  
+      let afkTimer;
+  
+      const setAfk = () => {
+        socket.emit('setAfk', { username: currentUser });
+        console.log(`${currentUser} is now AFK`);
+      };
+  
+      const resetAfkTimer = () => {
+        if (userStatus.online === false) { // TODO: fix bug: this condition is alwayse true because useEffect() don't watch for userStatus.online
+          socket.emit('setUserOnline', { username: currentUser });
+        }
+        clearTimeout(afkTimer);
+        afkTimer = setTimeout(setAfk, one_minute_in_milliseconds); // 1 minute of inactivity
+      };
+  
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          setAfk(); // Set user as AFK when the tab is hidden
+        } else {
+          resetAfkTimer(); // Reset the AFK timer when the tab is active again
+          socket.emit('setUserOnline', { username: currentUser });
+        }
+      };
+  
+      // Add event listeners
+      window.addEventListener('mousemove', resetAfkTimer);
+      window.addEventListener('keydown', resetAfkTimer);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+      resetAfkTimer(); // Start the AFK timer on component mount
+  
+      return () => {
+        clearTimeout(afkTimer);
+        socket.emit('setAfk', { username: currentUser }); // Ensure AFK is sent on unmount
+        window.removeEventListener('mousemove', resetAfkTimer);
+        window.removeEventListener('keydown', resetAfkTimer);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
+  }, [currentUser]);
+  
+
+  useEffect(() => {
+    socket.on('userStatusUpdate', ({ username, online, lastSeen }) => {
+      if (username === selectedUser) {
+        setUserStatus({ online, lastSeen });
+      }
+    });
+  
+    return () => {
+      socket.off('userStatusUpdate');
+    };
+  }, [selectedUser]);
+
   useEffect(() => {
     if (selectedUser && currentUser) {
       const room = [currentUser, selectedUser].sort().join('_');
@@ -186,7 +291,18 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
       <button onClick={onBack} style={{ marginBottom: '10px' }}>
         Back
       </button>
-      <h2>Chat with {selectedUser}</h2>
+      {/* <h2>Chat with {selectedUser}</h2> */}
+      <h2>
+        Chat with {selectedUser}{' '}
+        {userStatus.online ? (
+          <span style={{ color: 'green' }}>Online</span>
+        ) : (
+          <span style={{ color: 'gray' }}>
+            Last seen: {userStatus.lastSeen ? new Date(userStatus.lastSeen).toLocaleString() : 'Never'}
+          </span>
+        )}
+      </h2>
+
       <div
         className="chat-history"
         style={{

@@ -14,6 +14,7 @@ const http = require('http'); // Required for creating an HTTP server with Socke
 require('dotenv').config();
 
 const MessageHistory = require('./models/userDataSchema').MessageHistory;
+const User = require('./models/userDataSchema').User;
 
 
 // Set up mongoose connection
@@ -84,6 +85,26 @@ app.use('/api/currentUser', ensureAuthenticated, apiCurrentUser);
 app.use('/api/contactList', ensureAuthenticated, apiContactList);
 app.use('/api/messages', ensureAuthenticated, messageRouter);
 app.use('/api/chatHistory/:contactName', ensureAuthenticated, ensureContactAvailable, apiChatHistory);
+
+// TODO: remove body of function outside
+app.get('/api/userStatus/:username', async (req, res) => {
+  const { username } = req.params;
+  try {
+    const user = await User.findOne({ name: username });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      online: user.online,
+      lastSeen: user.lastSeen,
+    });
+  } catch (error) {
+    console.error('Error fetching user status:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 
 // WebSocket logic
@@ -179,9 +200,11 @@ app.use('/uploads', express.static(uploadDir));
 // WebSocket setup in app.js
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
+  let currentUserName;
 
   // Join a user to a specific chat room based on sender and receiver
   socket.on('joinRoom', ({ sender, receiver }) => {
+    currentUserName = sender; // init currentUserName (i'll need it for socket.on('disconnect'))
     // Create a unique room for the sender and receiver pair
     const roomName = [sender, receiver].sort().join('_'); // Sorting ensures unique room name for each pair
     socket.join(roomName);
@@ -232,9 +255,52 @@ io.on('connection', (socket) => {
       console.error('Error updating message status:', error);
     }
   });
+  
+
+  // Mark user as online
+  socket.on('setUserOnline', async ({ username }) => {
+    try {
+      await User.updateOne(
+        { name: username },
+        { $set: { online: true } }
+      );
+      // TODO: now it's not working right. Try to replace next line with: io.to(roomName).emit(...)
+      socket.broadcast.emit('userStatusUpdate', { username, online: true });
+    } catch (err) {
+      console.error('Error setting user online:', err);
+    }
+  });
+
+  // Handle disconnection or inactivity
+  const setOffline = async (username) => {
+    try {
+      await User.updateOne(
+        { name: username },
+        { $set: { online: false, lastSeen: new Date() } }
+      );
+      socket.broadcast.emit('userStatusUpdate', {
+        username,
+        online: false,
+        lastSeen: new Date(),
+      });
+    } catch (err) {
+      console.error('Error setting user offline:', err);
+    }
+  };
+
+  // Inactivity timer
+  // let afkTimer;
+  socket.on('setAfk', async ({ username }) => {
+    setOffline(username);
+    // clearTimeout(afkTimer);
+    // afkTimer = setTimeout(() => setOffline(username), 60000); // 1 min
+  });
 
   // Handle client disconnect
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
+    // const username = socket.handshake.query.username; // Ensure username is passed in query
+    console.log("username: ", currentUserName);
+    await setOffline(currentUserName); // TODO: now username is undefined
     console.log('User disconnected:', socket.id);
   });
 });
