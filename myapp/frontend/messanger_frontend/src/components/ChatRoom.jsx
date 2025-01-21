@@ -15,13 +15,52 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
 
   const [userStatus, setUserStatus] = useState({ online: false, lastSeen: null });
 
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false); // Show confirmation dialog for deleting history
+
+  const userStatusRef = useRef(userStatus); // Create a ref to hold the status
+  // userStatusRef.current = userStatus; // Keep the ref updated with the latest status
+
   const one_minute_in_milliseconds = 6000; // TODO: now its 6 sec for test
+
+  // Sync userStatusRef whenever userStatus changes
+  // useEffect(() => {
+  //   userStatusRef.current = userStatus;
+  // }, [userStatus]);
+
+  const deleteChatHistory = async () => {
+    try {
+      await axios.delete(`/api/deleteChatHistory/${selectedUser}`, {
+        data: { sender: currentUser, receiver: selectedUser },
+      });
+      socket.emit('deleteChatHistory', { sender: currentUser, receiver: selectedUser });
+    } catch (error) {
+      console.error('Error deleting history:', error);
+    }
+  };
+
+  useEffect(() => {
+    socket.on('chatHistoryDeleted', ({ sender, receiver }) => {
+      // Clear the chat history for the current room
+      const currentRoom = [currentUser, selectedUser].sort().join('_');
+      const notificationRoom = [sender, receiver].sort().join('_');
+      if (currentRoom === notificationRoom) {
+        console.log("DELETED")
+        setChatHistory([]);
+      } 
+    });
+
+    return () => socket.off('chatHistoryDeleted');
+  }, [currentUser, selectedUser]);
 
   useEffect(() => {
     
     const fetchLastSeen = async () => {
       try {
         const response = await axios.get(`/api/userStatus/${selectedUser}`);
+        userStatusRef.current = {
+          online: response.data.online,
+          lastSeen: response.data.lastSeen,
+        };
         setUserStatus({
           online: response.data.online,
           lastSeen: response.data.lastSeen,
@@ -33,8 +72,6 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
   
     fetchLastSeen(); // Fetch initial status
   },[]);
-
-  // useEffect(() => {
   //   if (currentUser) {
   //     socket.emit('setUserOnline', { username: currentUser });
   
@@ -62,19 +99,25 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
   useEffect(() => {
     if (currentUser) {
       socket.emit('setUserOnline', { username: currentUser });
-      console.log(`user ${currentUser} in now online`)
+      // console.log(`user ${currentUser} in now online`)
+      // console.log('current status: ', userStatusRef.current?.online);
+
   
       let afkTimer;
   
       const setAfk = () => {
         socket.emit('setAfk', { username: currentUser });
-        console.log(`${currentUser} is now AFK`);
+        // console.log(`${currentUser} is now AFK`);
+      // console.log('current status: ', userStatusRef.current?.online);
+
       };
   
       const resetAfkTimer = () => {
-        if (userStatus.online === false) { // TODO: fix bug: this condition is alwayse true because useEffect() don't watch for userStatus.online
-          socket.emit('setUserOnline', { username: currentUser });
+        if (!userStatusRef.current?.online) { // TODO: fix bug: this condition is alwayse true because useEffect() don't watch for userStatus.online
+          // console.log(`${currentUser} is back online`)
         }
+        socket.emit('setUserOnline', { username: currentUser });
+        // console.log('current status: ', userStatusRef.current?.online);
         clearTimeout(afkTimer);
         afkTimer = setTimeout(setAfk, one_minute_in_milliseconds); // 1 minute of inactivity
       };
@@ -104,11 +147,11 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
       };
     }
   }, [currentUser]);
-  
 
   useEffect(() => {
     socket.on('userStatusUpdate', ({ username, online, lastSeen }) => {
       if (username === selectedUser) {
+        userStatusRef.current = { online, lastSeen };
         setUserStatus({ online, lastSeen });
       }
     });
@@ -302,6 +345,26 @@ function ChatRoom({ selectedUser, currentUser, onBack }) {
           </span>
         )}
       </h2>
+
+      <button
+        style={{ marginBottom: '10px', backgroundColor: 'red', color: 'white', border: 'none', padding: '5px 10px' }}
+        onClick={() => setShowDeleteConfirmation(true)}
+      >
+        Delete History
+      </button>
+
+      {showDeleteConfirmation && (
+        <div style={{ border: '1px solid gray', padding: '10px', backgroundColor: '#f9f9f9' }}>
+          <p>Are you sure you want to delete the chat history?</p>
+          <button onClick={() => setShowDeleteConfirmation(false)}>No</button>
+          <button onClick={() => {
+            deleteChatHistory();
+            setShowDeleteConfirmation(false);
+          }} style={{ marginLeft: '10px', backgroundColor: 'red', color: 'white' }}>
+            Yes
+          </button>
+        </div>
+      )}
 
       <div
         className="chat-history"

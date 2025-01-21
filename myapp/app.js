@@ -16,7 +16,6 @@ require('dotenv').config();
 const MessageHistory = require('./models/userDataSchema').MessageHistory;
 const User = require('./models/userDataSchema').User;
 
-
 // Set up mongoose connection
 const mongoose = require("mongoose");
 mongoose.set("strictQuery", false);
@@ -34,7 +33,6 @@ const logoutRouter = require('./routes/logout');
 const addUser = require('./routes/addUser');
 const apiCurrentUser = require('./routes/api/currentUser');
 const apiContactList = require('./routes/api/contactList');
-const apiChatHistory = require('./routes/api/chatHistory');
 const messageRouter = require('./routes/api/messages');
 
 
@@ -84,10 +82,29 @@ app.use('/addUser', ensureAuthenticated, addUser);
 app.use('/api/currentUser', ensureAuthenticated, apiCurrentUser);
 app.use('/api/contactList', ensureAuthenticated, apiContactList);
 app.use('/api/messages', ensureAuthenticated, messageRouter);
-app.use('/api/chatHistory/:contactName', ensureAuthenticated, ensureContactAvailable, apiChatHistory);
+
+app.get('/api/chatHistory/:contactName', ensureAuthenticated, ensureContactAvailable, async (req, res) => {
+  const currentUser = req.user?.name; // Assuming user is authenticated
+  const { contactName } = req.params;
+
+  try {
+      // Retrieve the chat history between the current user and the contact
+      const chatHistory = await MessageHistory.find({
+          $or: [
+              { sender: currentUser, receiver: contactName },
+              { sender: contactName, receiver: currentUser }
+          ]
+      }).sort({ timestamp: 1 }); // Sort by timestamp ascending
+
+      res.json({ success: true, chatHistory });
+  } catch (error) {
+      console.error('Error retrieving chat history:', error);
+      res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
 
 // TODO: remove body of function outside
-app.get('/api/userStatus/:username', async (req, res) => {
+app.get('/api/userStatus/:username', /*ensureAuthenticated, ensureContactAvailable,*/ async (req, res) => {
   const { username } = req.params;
   try {
     const user = await User.findOne({ name: username });
@@ -105,7 +122,23 @@ app.get('/api/userStatus/:username', async (req, res) => {
   }
 });
 
+app.delete('/api/deleteChatHistory/:contactName', ensureAuthenticated, ensureContactAvailable, async (req, res) => {
+  const { sender, receiver } = req.body;
 
+  try {
+    await MessageHistory.deleteMany({
+      $or: [
+        { sender, receiver },
+        { sender: receiver, receiver: sender },
+      ],
+    });
+
+    res.status(200).json({ message: 'Chat history deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting chat history:', error);
+    res.status(500).json({ error: 'Failed to delete chat history' });
+  }
+});
 
 // WebSocket logic
 // TODO: move mongoose.Schema to 'models' folder
@@ -120,7 +153,7 @@ const MessageSchema = new mongoose.Schema({
   timestamp: Date,
 });
 const ChatUser = mongoose.model('ChatUser', UserSchema);
-const Message = mongoose.model('Message', MessageSchema);
+// const Message = mongoose.model('Message', MessageSchema);
 
 // io.on('connection', (socket) => {
 //   console.log('User connected:', socket.id);
@@ -226,13 +259,6 @@ io.on('connection', (socket) => {
 
   // Handle `sendMessage` event for message transmission
   socket.on('sendMessage', async ({ sender, receiver, content, file, messageID }) => {
-    // const message = new Message({
-    //   sender,
-    //   receiver,
-    //   content,
-    //   timestamp: new Date(),
-    // });
-    // await message.save(); // Save message to database
 
     // Define the room name the same way as in `joinRoom`
     const roomName = [sender, receiver].sort().join('_');
@@ -294,6 +320,12 @@ io.on('connection', (socket) => {
     setOffline(username);
     // clearTimeout(afkTimer);
     // afkTimer = setTimeout(() => setOffline(username), 60000); // 1 min
+  });
+
+  // Handle chat history deletion
+  socket.on('deleteChatHistory', ({ sender, receiver }) => {
+    const roomName = [sender, receiver].sort().join('_');
+    io.to(roomName).emit('chatHistoryDeleted', { sender, receiver }); // Notify both users in the chat room
   });
 
   // Handle client disconnect
